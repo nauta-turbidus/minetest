@@ -254,6 +254,10 @@ SubgameSpec findSubgame(const std::string &id)
 	if (conf.exists("release"))
 		game_release = conf.getS32("release");
 
+	std::string gameid_alias;
+	if (conf.exists("gameid_alias"))
+		gameid_alias = conf.get("gameid_alias");
+
 	std::string menuicon_path;
 #ifndef SERVER
 	menuicon_path = getImagePath(

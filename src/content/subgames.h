@@ -36,6 +36,7 @@ struct SubgameSpec
 	std::string last_mod; // "" <=> no mod
 	std::string path;
 	std::string gamemods_path;
+	std::string gameid_alias;
 
 	/**
 	 * Map from virtual path to mods path
@@ -53,7 +54,8 @@ struct SubgameSpec
 			const std::string &menuicon_path = "",
 			const std::string &author = "", int release = 0,
 			const std::string &first_mod = "",
-			const std::string &last_mod = "") :
+			const std::string &last_mod = "",
+			const std::string &gameid_alias = "") :
 			id(id),
 			title(title), author(author), release(release),
 			first_mod(first_mod),
@@ -61,7 +63,8 @@ struct SubgameSpec
 			path(path),
 			gamemods_path(gamemods_path),
 			addon_mods_paths(addon_mods_paths),
-			menuicon_path(menuicon_path)
+			menuicon_path(menuicon_path),
+			gameid_alias(gameid_alias)
 	{
 	}
 
