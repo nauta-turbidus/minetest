@@ -178,8 +178,50 @@ SubgameSpec findSubgame(const std::string &id)
 		}
 	}
 
-	if (game_path.empty())
-		return SubgameSpec();
+	std::string idv = id;
+
+	// Try to find aliased game
+	if (game_path.empty()) {
+		std::vector<GameFindPath> gamespaths;
+		gamespaths.emplace_back(share + DIR_DELIM + "games", false);
+		gamespaths.emplace_back(user + DIR_DELIM + "games", true);
+
+		Strfnd search_paths(getSubgamePathEnv());
+
+		while (!search_paths.at_end())
+			gamespaths.emplace_back(search_paths.next(PATH_DELIM), false);
+
+		for (const GameFindPath &gamespath : gamespaths) {
+			const std::string &path = gamespath.path;
+			std::vector<fs::DirListNode> dirlist = fs::GetDirListing(path);
+			for (const fs::DirListNode &dln : dirlist) {
+				if (!dln.dir)
+					continue;
+
+				// If configuration file is not found or broken, ignore game
+				Settings conf;
+				std::string conf_path = path + DIR_DELIM + dln.name +
+							DIR_DELIM + "game.conf";
+				if (!conf.readConfigFile(conf_path.c_str()))
+					continue;
+
+				if (conf.exists("gameid_alias")) {
+					std::string alias = conf.get("gameid_alias");
+					if (alias == id) {
+						idv = dln.name;
+						game_path = path + DIR_DELIM + dln.name;
+						user_game = gamespath.user_specific;
+						break;
+					}
+				}
+			}
+			if (!game_path.empty())
+				break;
+		}
+
+		if (game_path.empty())
+			return SubgameSpec();
+	}
 
 	// Find mod directories
 	std::unordered_map<std::string, std::string> mods_paths;
@@ -190,6 +232,27 @@ SubgameSpec findSubgame(const std::string &id)
 	for (const std::string &mod_path : getEnvModPaths()) {
 		mods_paths[fs::AbsolutePath(mod_path)] = mod_path;
 	}
+
+	// Get meta
+	std::string conf_path = game_path + DIR_DELIM + "game.conf";
+	Settings conf;
+	conf.readConfigFile(conf_path.c_str());
+
+	std::string game_title;
+	if (conf.exists("title"))
+		game_title = conf.get("title");
+	else if (conf.exists("name"))
+		game_title = conf.get("name");
+	else
+		game_title = idv;
+
+	std::string game_author;
+	if (conf.exists("author"))
+		game_author = conf.get("author");
+
+	int game_release = 0;
+	if (conf.exists("release"))
+		game_release = conf.getS32("release");
 
 	std::string menuicon_path;
 #ifndef SERVER
