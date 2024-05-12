@@ -210,10 +210,27 @@ void main(void)
 #else
 	vec4 color = inVertexColor;
 #endif
+	vec3 initialColor = color.rgb;
+
+	// Unpack the values from alpha
+	float ratio = floor(color.a*16)/16;
+	float lightBase = floor((color.a - ratio)*256)/16;
 	// The alpha gives the ratio of sunlight in the incoming light.
-	nightRatio = 1.0 - color.a;
-	color.rgb = color.rgb * (color.a * dayLight.rgb +
+	nightRatio = 1.0 - ratio;
+
+	// Modify the color with the base light
+	color.rgb *= lightBase;
+
+	// Calculate how much "space" remains for the ambient light
+	float ambientBase = 1.0 - lightBase;
+	// Apply a curve that preserves vertex shadows
+	float ambientFactor = (-0.5*ambientBase) / (-2.5 + 2*ambientBase);
+	// Take the initial vertex color into account to avoid desaturation
+	color.rgb += initialColor * ambientFactor * ambientLight;
+
+	color.rgb = color.rgb * (ratio * dayLight.rgb +
 		nightRatio * artificialLight.rgb) * 2.0;
+
 	color.a = 1.0;
 
 	// Emphase blue a bit in darker places
@@ -222,9 +239,8 @@ void main(void)
 	color.b += max(0.0, 0.021 - abs(0.2 * brightness - 0.021) +
 		0.07 * brightness);
 
-	color.rgb += ambientLight;
-
 	varColor = clamp(color, 0.0, 1.0);
+
 
 #ifdef ENABLE_DYNAMIC_SHADOWS
 	if (f_shadow_strength > 0.0) {

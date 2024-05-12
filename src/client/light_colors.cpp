@@ -39,12 +39,13 @@ video::SColor encode_light(u16 light, u8 emissive_light)
 	// Ratio of sunlight:
 	u32 r;
 	if (sum > 0)
-		r = day * 255 / sum;
+		r = day * 15 / sum;
 	else
 		r = 0;
 	// Average light:
-	float b = (day + night) / 2;
-	return video::SColor(r, b, b, b);
+	u32 b = (day + night) / 30;
+	// return video::SColor(r, b, b, b);
+	return video::SColor((r<<4)|b, 255, 255, 255);
 }
 
 void get_sunlight_color(video::SColorf *sunlight, u32 daynight_ratio){
