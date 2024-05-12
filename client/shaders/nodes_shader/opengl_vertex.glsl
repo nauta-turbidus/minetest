@@ -210,6 +210,15 @@ void main(void)
 #else
 	vec4 color = inVertexColor;
 #endif
+	// Ambient light
+	float minVxC = min(color.r, min(color.g, color.b));
+	float chroma = max(color.r, max(color.g, color.b)) - minVxC;
+	vec3 appliedAmbient = clamp(color.rgb + ambientLight / 2.0, 0.0, 1.0);
+	float chrom2 = max(appliedAmbient.r, max(appliedAmbient.g, appliedAmbient.b))
+				 - min(appliedAmbient.r, min(appliedAmbient.g, appliedAmbient.b));
+	if (chroma <= chrom2 && chroma < 0.05)
+		color.rgb = appliedAmbient;
+
 	// The alpha gives the ratio of sunlight in the incoming light.
 	nightRatio = 1.0 - color.a;
 	color.rgb = color.rgb * (color.a * dayLight.rgb +
@@ -221,8 +230,6 @@ void main(void)
 	float brightness = (color.r + color.g + color.b) / 3.0;
 	color.b += max(0.0, 0.021 - abs(0.2 * brightness - 0.021) +
 		0.07 * brightness);
-
-	color.rgb += ambientLight;
 
 	varColor = clamp(color, 0.0, 1.0);
 
