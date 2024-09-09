@@ -162,10 +162,12 @@ SubgameSpec findSubgame(const std::string &id)
 	if (id.empty())
 		return SubgameSpec();
 
+	std::string idv = normalizeGameId(id);
+
 	GamePathMap gamepaths = getAvailableGamePaths();
-	auto found = gamepaths.find(id);
+	auto found = gamepaths.find(idv);
 	if (found == gamepaths.end()) { // Failed to find the game, try to find aliased game
-		auto look_for_alias = [&](){
+		[&](){
 			for (auto it = gamepaths.begin(), end = gamepaths.end(); it != end; ++it) {
 				const std::string conf_path = it->second.path + DIR_DELIM + "game.conf";
 				Settings conf;
@@ -174,15 +176,14 @@ SubgameSpec findSubgame(const std::string &id)
 					std::vector<std::string> aliases = str_split(conf.get("aliases"), ',');
 					for (const std::string &alias_raw : aliases) {
 						std::string alias = normalizeGameId(trim(alias_raw));
-						if (alias == id) {
+						if (alias == idv) {
 							found = it;
 							return;
 						}
 					}
 				}
 			}
-		};
-		look_for_alias();
+		}();
 	}
 	if (found == gamepaths.end()) // Failed to find the game taking aliases into account
 		return SubgameSpec();
