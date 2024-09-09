@@ -44,6 +44,16 @@ bool getGameMinetestConfig(const std::string &game_path, Settings &conf)
 	return conf.readConfigFile(conf_path.c_str());
 }
 
+std::string normalizeGameId(const std::string_view id)
+{
+	static const char *ends[] = {"_game", NULL};
+	auto shorter = static_cast<std::string>(removeStringEnd(id, ends));
+	if (!shorter.empty())
+		return shorter;
+	else
+		return static_cast<std::string>(id);
+}
+
 }
 
 
@@ -73,7 +83,9 @@ struct GameFindPath
 			path(path), user_specific(user_specific)
 	{
 	}
+	GameFindPath() { }
 };
+
 
 std::string getSubgamePathEnv()
 {
@@ -129,6 +141,13 @@ static SubgameSpec getSubgameSpec(const std::string &game_id,
 	if (conf.exists("last_mod"))
 		last_mod = conf.get("last_mod");
 
+	std::unordered_set<std::string> aliases;
+	if (conf.exists("aliases")) {
+		std::vector<std::string> aliases_raw = str_split(conf.get("aliases"), ',');
+		for (const std::string &alias : aliases_raw)
+			aliases.insert(normalizeGameId(trim(alias)));
+	}
+
 	SubgameSpec spec(game_id, game_path, gamemods_path, mods_paths, game_title,
 			menuicon_path, game_author, game_release, first_mod, last_mod, aliases);
 
@@ -142,100 +161,41 @@ SubgameSpec findSubgame(const std::string &id)
 {
 	if (id.empty())
 		return SubgameSpec();
-	std::string share = porting::path_share;
-	std::string user = porting::path_user;
 
-	auto normalize_game_id = [&](std::string_view name){
-		if (str_ends_with(name, "_game"))
-			return name.substr(0, name.size() - 5);
-
-		return name;
-	};
-
-	std::string idv = static_cast<std::string>(normalize_game_id(trim(id)));
-
-	// Get games install locations
-	Strfnd search_paths(getSubgamePathEnv());
-
-	// Get all possible paths fo game
-	std::vector<GameFindPath> find_paths;
-	while (!search_paths.at_end()) {
-		std::string path = search_paths.next(PATH_DELIM);
-		path.append(DIR_DELIM).append(id);
-		find_paths.emplace_back(path, false);
-		path.append("_game");
-		find_paths.emplace_back(path, false);
-	}
-
-	std::string game_base = DIR_DELIM;
-	game_base = game_base.append("games").append(DIR_DELIM).append(id);
-	std::string game_suffixed = game_base + "_game";
-	find_paths.emplace_back(user + game_suffixed, true);
-	find_paths.emplace_back(user + game_base, true);
-	find_paths.emplace_back(share + game_suffixed, false);
-	find_paths.emplace_back(share + game_base, false);
-
-	// Find game directory
-	std::string game_path;
-	bool user_game = true; // Game is in user's directory
-	for (const GameFindPath &find_path : find_paths) {
-		const std::string &try_path = find_path.path;
-		if (fs::PathExists(try_path)) {
-			game_path = try_path;
-			user_game = find_path.user_specific;
-			break;
-		}
-	}
-
-	// Failed to find the game, try to find aliased game
-	if (game_path.empty()) {
-		std::vector<GameFindPath> gamespaths;
-		gamespaths.emplace_back(share + DIR_DELIM + "games", false);
-		gamespaths.emplace_back(user + DIR_DELIM + "games", true);
-
-		Strfnd search_paths(getSubgamePathEnv());
-
-		while (!search_paths.at_end())
-			gamespaths.emplace_back(search_paths.next(PATH_DELIM), false);
-
+	GamePathMap gamepaths = getAvailableGamePaths();
+	auto found = gamepaths.find(id);
+	if (found == gamepaths.end()) { // Failed to find the game, try to find aliased game
 		auto look_for_alias = [&](){
-			for (const GameFindPath &gamespath : gamespaths) {
-				const std::string &path = gamespath.path;
-				std::vector<fs::DirListNode> dirlist = fs::GetDirListing(path);
-				for (const fs::DirListNode &dln : dirlist) {
-					if (!dln.dir)
-						continue;
-
-					// If configuration file is not found or broken, ignore game
-					Settings conf;
-					std::string conf_path = path + DIR_DELIM + dln.name +
-								DIR_DELIM + "game.conf";
-					if (!conf.readConfigFile(conf_path.c_str()))
-						continue;
-
-					if (conf.exists("aliases")) {
-						std::vector<std::string> aliases = str_split(conf.get("aliases"), ',');
-						for (const std::string &alias_raw : aliases) {
-							std::string_view alias = normalize_game_id(trim(alias_raw));
-							if (alias == idv) {
-								idv = dln.name;
-								game_path = path + DIR_DELIM + dln.name;
-								user_game = gamespath.user_specific;
-								return;
-							}
+			for (auto it = gamepaths.begin(), end = gamepaths.end(); it != end; ++it) {
+				const std::string conf_path = it->second.path + DIR_DELIM + "game.conf";
+				Settings conf;
+				conf.readConfigFile(conf_path.c_str());
+				if (conf.exists("aliases")) {
+					std::vector<std::string> aliases = str_split(conf.get("aliases"), ',');
+					for (const std::string &alias_raw : aliases) {
+						std::string alias = normalizeGameId(trim(alias_raw));
+						if (alias == id) {
+							found = it;
+							return;
 						}
 					}
 				}
 			}
 		};
 		look_for_alias();
-
-		if (game_path.empty()) // Failed to find the game taking aliases into account
-			return SubgameSpec();
 	}
+	if (found == gamepaths.end()) // Failed to find the game taking aliases into account
+		return SubgameSpec();
+
 	// Found the game, proceed
+	GameFindPath &data = found->second;
+	std::string &game_path = data.path;
+	bool user_game = data.user_specific;
+
 
 	// Find mod directories
+	std::string share = porting::path_share;
+	std::string user = porting::path_user;
 	std::unordered_map<std::string, std::string> mods_paths;
 	mods_paths["mods"] = user + DIR_DELIM + "mods";
 	if (!user_game && user != share)
@@ -245,42 +205,13 @@ SubgameSpec findSubgame(const std::string &id)
 		mods_paths[fs::AbsolutePath(mod_path)] = mod_path;
 	}
 
-	// Get meta
-	std::string conf_path = game_path + DIR_DELIM + "game.conf";
-	Settings conf;
-	conf.readConfigFile(conf_path.c_str());
-
-	std::string game_title;
-	if (conf.exists("title"))
-		game_title = conf.get("title");
-	else if (conf.exists("name"))
-		game_title = conf.get("name");
-	else
-		game_title = idv;
-
-	std::string game_author;
-	if (conf.exists("author"))
-		game_author = conf.get("author");
-
-	int game_release = 0;
-	if (conf.exists("release"))
-		game_release = conf.getS32("release");
-
-	std::unordered_set<std::string> aliases;
-	if (conf.exists("aliases"))
-	{
-		std::vector<std::string> aliases_raw = str_split(conf.get("aliases"), ',');
-		for (const std::string &alias : aliases_raw)
-			aliases.insert(static_cast<std::string>(normalize_game_id(trim(alias))));
-	}
-
 	std::string menuicon_path;
 #ifndef SERVER
 	menuicon_path = getImagePath(
 			game_path + DIR_DELIM + "menu" + DIR_DELIM + "icon.png");
 #endif
 
-	return getSubgameSpec(id, game_path, mods_paths, menuicon_path);
+	return getSubgameSpec(found->first, game_path, mods_paths, menuicon_path);
 }
 
 SubgameSpec findWorldSubgame(const std::string &world_path)
@@ -293,40 +224,46 @@ SubgameSpec findWorldSubgame(const std::string &world_path)
 	return findSubgame(world_gameid);
 }
 
-std::set<std::string> getAvailableGameIds()
+GamePathMap getAvailableGamePaths()
 {
-	std::set<std::string> gameids;
-	std::set<std::string> gamespaths;
-	gamespaths.insert(porting::path_share + DIR_DELIM + "games");
-	gamespaths.insert(porting::path_user + DIR_DELIM + "games");
+	GamePathMap gamepaths;
+	std::vector<GameFindPath> gamespaths{
+		{porting::path_share + DIR_DELIM + "games", false},
+		{porting::path_user + DIR_DELIM + "games", true}
+	};
 
 	Strfnd search_paths(getSubgamePathEnv());
 
 	while (!search_paths.at_end())
-		gamespaths.insert(search_paths.next(PATH_DELIM));
+		gamespaths.emplace_back(search_paths.next(PATH_DELIM), false);
 
-	for (const std::string &gamespath : gamespaths) {
-		std::vector<fs::DirListNode> dirlist = fs::GetDirListing(gamespath);
+	for (const GameFindPath &gamespath : gamespaths) {
+		std::vector<fs::DirListNode> dirlist = fs::GetDirListing(gamespath.path);
 		for (const fs::DirListNode &dln : dirlist) {
 			if (!dln.dir)
 				continue;
 
 			// If configuration file is not found or broken, ignore game
 			Settings conf;
-			std::string conf_path = gamespath + DIR_DELIM + dln.name +
+			std::string conf_path = gamespath.path + DIR_DELIM + dln.name +
 						DIR_DELIM + "game.conf";
 			if (!conf.readConfigFile(conf_path.c_str()))
 				continue;
 
 			// Add it to result
-			const char *ends[] = {"_game", NULL};
-			auto shorter = removeStringEnd(dln.name, ends);
-			if (!shorter.empty())
-				gameids.emplace(shorter);
-			else
-				gameids.insert(dln.name);
+			gamepaths[normalizeGameId(dln.name)]
+				= {gamespath.path + DIR_DELIM + dln.name, gamespath.user_specific};
 		}
 	}
+	return gamepaths;
+}
+
+std::set<std::string> getAvailableGameIds()
+{
+	GamePathMap gamepaths = getAvailableGamePaths();
+	std::set<std::string> gameids;
+	for (auto &&p : gamepaths)
+		gameids.insert(p.first);
 	return gameids;
 }
 
