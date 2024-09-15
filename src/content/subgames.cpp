@@ -164,7 +164,7 @@ SubgameSpec findSubgame(const std::string &id)
 	GamePathMap gamepaths = getAvailableGamePaths();
 	auto found = gamepaths.find(idv);
 	if (found == gamepaths.end()) { // Failed to find the game, try to find aliased game
-		for (auto it = gamepaths.begin(), end = gamepaths.end(); it != end; ++it) {
+		for (auto it = gamepaths.begin(); it != gamepaths.end(); ++it) {
 			const std::string conf_path = it->second.path + DIR_DELIM + "game.conf";
 			Settings conf;
 			conf.readConfigFile(conf_path.c_str());
@@ -225,7 +225,7 @@ SubgameSpec findWorldSubgame(const std::string &world_path)
 GamePathMap getAvailableGamePaths()
 {
 	GamePathMap gamepaths;
-	std::vector<GameFindPath> gamespaths{
+	std::vector<GameFindPath> game_search_paths{
 		{porting::path_share + DIR_DELIM + "games", false},
 		{porting::path_user + DIR_DELIM + "games", true}
 	};
@@ -233,24 +233,24 @@ GamePathMap getAvailableGamePaths()
 	Strfnd search_paths(getSubgamePathEnv());
 
 	while (!search_paths.at_end())
-		gamespaths.emplace_back(search_paths.next(PATH_DELIM), false);
+		game_search_paths.emplace_back(search_paths.next(PATH_DELIM), false);
 
-	for (const GameFindPath &gamespath : gamespaths) {
-		std::vector<fs::DirListNode> dirlist = fs::GetDirListing(gamespath.path);
+	for (const GameFindPath &search_path : game_search_paths) {
+		std::vector<fs::DirListNode> dirlist = fs::GetDirListing(search_path.path);
 		for (const fs::DirListNode &dln : dirlist) {
 			if (!dln.dir)
 				continue;
 
 			// If configuration file is not found or broken, ignore game
 			Settings conf;
-			std::string conf_path = gamespath.path + DIR_DELIM + dln.name +
+			std::string conf_path = search_path.path + DIR_DELIM + dln.name +
 						DIR_DELIM + "game.conf";
 			if (!conf.readConfigFile(conf_path.c_str()))
 				continue;
 
 			// Add it to result
 			gamepaths[normalizeGameId(dln.name)]
-				= {gamespath.path + DIR_DELIM + dln.name, gamespath.user_specific};
+				= {search_path.path + DIR_DELIM + dln.name, search_path.user_specific};
 		}
 	}
 	return gamepaths;
