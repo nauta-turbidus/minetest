@@ -205,8 +205,8 @@ end
 
 function contentdb.calculate_package_id(type, author, name)
 	local id = author:lower() .. "/"
-	if (type == nil or type == "game") and #name > 5 and name:sub(#name - 4) == "_game" then
-		id = id .. name:sub(1, #name - 5)
+	if type == nil or type == "game" then
+		id = id .. pkgmgr.normalize_game_id(name)
 	else
 		id = id .. name
 	end
@@ -454,14 +454,13 @@ local function fetch_pkgs(params)
 
 	for _, package in pairs(packages) do
 		package.id = params.calculate_package_id(package.type, package.author, package.name)
+
 		package.url_part = core.urlencode(package.author) .. "/" .. core.urlencode(package.name)
 
 		if package.aliases then
 			local suffix = "/" .. package.name
-			local suf_len = #suffix
-			local is_game = package.type == "game"
 			for _, alias in ipairs(package.aliases) do
-				if is_game or alias:sub(suf_len) == suffix then
+				if is_game or alias:sub(-#suffix) == suffix then
 					aliases[alias:lower()] = package.id
 				end
 			end
