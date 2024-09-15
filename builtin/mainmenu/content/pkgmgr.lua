@@ -755,9 +755,19 @@ end
 
 --------------------------------------------------------------------------------
 function pkgmgr.find_by_gameid(gameid)
+	if not gameid then
+		return nil, nil
+	end
 	for i, game in ipairs(pkgmgr.games) do
 		if game.id == gameid then
 			return game, i
+		end
+	end
+	for i, game in ipairs(pkgmgr.games) do
+		for _, alias in pairs(game.aliases) do
+			if pkgmgr.normalize_game_id(alias) == pkgmgr.normalize_game_id(gameid) then
+				return game, i
+			end
 		end
 	end
 	return nil, nil
