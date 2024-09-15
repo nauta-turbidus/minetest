@@ -164,24 +164,24 @@ SubgameSpec findSubgame(const std::string &id)
 	GamePathMap gamepaths = getAvailableGamePaths();
 	auto found = gamepaths.find(idv);
 	if (found == gamepaths.end()) { // Failed to find the game, try to find aliased game
-		[&](){
-			for (auto it = gamepaths.begin(), end = gamepaths.end(); it != end; ++it) {
-				const std::string conf_path = it->second.path + DIR_DELIM + "game.conf";
-				Settings conf;
-				conf.readConfigFile(conf_path.c_str());
-				if (conf.exists("aliases")) {
-					std::vector<std::string> aliases = str_split(conf.get("aliases"), ',');
-					for (const std::string &alias_raw : aliases) {
-						std::string alias = normalizeGameId(trim(alias_raw));
-						if (alias == idv) {
-							found = it;
-							return;
-						}
+		for (auto it = gamepaths.begin(), end = gamepaths.end(); it != end; ++it) {
+			const std::string conf_path = it->second.path + DIR_DELIM + "game.conf";
+			Settings conf;
+			conf.readConfigFile(conf_path.c_str());
+			if (conf.exists("aliases")) {
+				std::vector<std::string> aliases = str_split(conf.get("aliases"), ',');
+				for (const std::string &alias_raw : aliases) {
+					std::string alias = normalizeGameId(trim(alias_raw));
+					if (alias == idv) {
+						found = it;
+						goto break_out_of_loops;
 					}
 				}
 			}
-		}();
+		}
 	}
+break_out_of_loops:
+
 	if (found == gamepaths.end()) // Failed to find the game taking aliases into account
 		return SubgameSpec();
 
