@@ -460,6 +460,7 @@ local function fetch_pkgs(params)
 		if package.aliases then
 			local suffix = "/" .. package.name
 			for _, alias in ipairs(package.aliases) do
+				-- We currently only support game name changing
 				if is_game or alias:sub(-#suffix) == suffix then
 					aliases[alias:lower()] = package.id
 				end
