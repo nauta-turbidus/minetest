@@ -206,7 +206,8 @@ end
 function contentdb.calculate_package_id(type, author, name)
 	local id = author:lower() .. "/"
 	if type == nil or type == "game" then
-		id = id .. pkgmgr.normalize_game_id(name)
+		-- localized, because can't access pkgmgr global here
+		id = id .. (name:match("(.*)_game$") or name)
 	else
 		id = id .. name
 	end
