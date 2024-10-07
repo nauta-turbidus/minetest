@@ -74,14 +74,9 @@ struct SubgameSpec
 	void checkAndLog() const;
 };
 
-struct GameFindPath;
-
-using GamePathMap = std::unordered_map<std::string, GameFindPath>;
-
 SubgameSpec findSubgame(const std::string &id);
 SubgameSpec findWorldSubgame(const std::string &world_path);
 
-GamePathMap getAvailableGamePaths();
 std::set<std::string> getAvailableGameIds();
 std::vector<SubgameSpec> getAvailableGames();
 // Get the list of paths to mods in the environment variable $MINETEST_MOD_PATH
