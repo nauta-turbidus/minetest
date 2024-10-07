@@ -51,6 +51,18 @@ std::string normalizeGameId(const std::string_view id)
 	return std::string(shorter.empty() ? id : shorter);
 }
 
+std::unordered_set<std::string> getAliasesFromSettings(Settings &conf)
+{
+	std::unordered_set<std::string> aliases;
+	if (!conf.exists("aliases"))
+		return aliases;
+
+	std::vector<std::string> aliases_raw = str_split(conf.get("aliases"), ',');
+	for (const std::string &alias : aliases_raw)
+		aliases.insert(normalizeGameId(trim(alias)));
+	return aliases;
+}
+
 }
 
 
@@ -140,12 +152,7 @@ static SubgameSpec getSubgameSpec(const std::string &game_id,
 	if (conf.exists("last_mod"))
 		last_mod = conf.get("last_mod");
 
-	std::unordered_set<std::string> aliases;
-	if (conf.exists("aliases")) {
-		std::vector<std::string> aliases_raw = str_split(conf.get("aliases"), ',');
-		for (const std::string &alias : aliases_raw)
-			aliases.insert(normalizeGameId(trim(alias)));
-	}
+	std::unordered_set<std::string> aliases = getAliasesFromSettings(conf);
 
 	SubgameSpec spec(game_id, game_path, gamemods_path, mods_paths, game_title,
 			menuicon_path, game_author, game_release, first_mod, last_mod, aliases);
@@ -223,19 +230,13 @@ SubgameSpec findSubgame(const std::string &id)
 			const std::string conf_path = it->second.path + DIR_DELIM + "game.conf";
 			Settings conf;
 			conf.readConfigFile(conf_path.c_str());
-			if (conf.exists("aliases")) {
-				std::vector<std::string> aliases = str_split(conf.get("aliases"), ',');
-				for (const std::string &alias_raw : aliases) {
-					std::string alias = normalizeGameId(trim(alias_raw));
-					if (alias == idv) {
-						found = it;
-						goto break_out_of_loops;
-					}
-				}
+			std::unordered_set<std::string> aliases = getAliasesFromSettings(conf);
+			if (aliases.find(idv) != aliases.end()) {
+				found = it;
+				break;
 			}
 		}
 	}
-break_out_of_loops:
 
 	if (found == gamepaths.end()) // Failed to find the game taking aliases into account
 		return SubgameSpec();
