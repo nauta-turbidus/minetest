@@ -202,7 +202,7 @@ std::set<std::string> getAvailableGameIds()
 	GamePathMap gamepaths = getAvailableGamePaths();
 	std::set<std::string> gameids;
 	for (auto &&p : gamepaths)
-		gameids.insert(p.first);
+		gameids.insert(std::move(p.first));
 	return gameids;
 }
 

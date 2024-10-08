@@ -85,13 +85,13 @@ local function init_globals()
 		end,
 		-- Filter function
 		function(element, gameid)
-			if element.gameid == gameid then
+			-- Keep in sync with the logic in pkgmgr.find_by_gameid
+			local el_gameid = pkgmgr.normalize_game_id(element.gameid)
+			if el_gameid == gameid then
 				return true
 			end
-			for _, alias in ipairs(pkgmgr.find_by_gameid(gameid).aliases) do
-				if pkgmgr.normalize_game_id(element.gameid) == pkgmgr.normalize_game_id(alias) then
-					return true
-				end
+			if pkgmgr.find_by_gameid(gameid).aliases[el_gameid] then
+				return true
 			end
 			return false
 		end

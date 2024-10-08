@@ -754,23 +754,30 @@ function pkgmgr.reload_global_mods()
 end
 
 --------------------------------------------------------------------------------
+-- Keep in sync with the filter function of menudata.worldlist (in init_globals())
 function pkgmgr.find_by_gameid(gameid)
 	if not gameid then
 		return nil, nil
 	end
+	gameid = pkgmgr.normalize_game_id(gameid)
 	for i, game in ipairs(pkgmgr.games) do
 		if game.id == gameid then
 			return game, i
 		end
 	end
+	local ret, val
 	for i, game in ipairs(pkgmgr.games) do
-		for _, alias in pairs(game.aliases) do
-			if pkgmgr.normalize_game_id(alias) == pkgmgr.normalize_game_id(gameid) then
-				return game, i
+		if game.aliases[gameid] then
+			if ret then
+				minetest.log("warning",
+					"Found two games using alias " .. gameid .. ": " ..
+					game.id .. " and " .. ret.id
+				)
 			end
+			ret, val = game, i
 		end
 	end
-	return nil, nil
+	return ret, val
 end
 
 --------------------------------------------------------------------------------

@@ -337,12 +337,10 @@ int ModApiMainMenu::l_get_games(lua_State *L)
 		lua_pushstring(L, "aliases");
 		lua_newtable(L);
 		int table_aliases = lua_gettop(L);
-		int alias_index = 1;
 		for (const auto &alias : game.aliases) {
-			lua_pushnumber(L, alias_index);
 			lua_pushstring(L, alias.c_str());
+			lua_pushboolean(L, true);
 			lua_settable(L, table_aliases);
-			alias_index++;
 		}
 		lua_settable(L, top_lvl2);
 
