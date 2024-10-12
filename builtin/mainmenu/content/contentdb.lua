@@ -98,7 +98,7 @@ local function start_install(package, reason)
 			local delete_old_dir
 			if package.path then
 				local name = pkgmgr.normalize_game_id(package.path:match("[^/\\]+[/\\]?$"))
-				if name ~= package.name then
+				if name ~= pkgmgr.normalize_game_id(package.name) then
 					delete_old_dir = package.path
 					package.path = core.get_gamepath() .. DIR_DELIM .. package.name
 				end
